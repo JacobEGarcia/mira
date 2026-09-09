@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIRA - a personal agent that does the work</title>
+<style>
+:root{
+  --paper:#f7f3ec; --card:#fffdf8; --ink:#211d17; --ink-soft:#6f675c;
+  --line:#e4dccc; --accent:#c2451e; --accent-soft:#f6e3da; --green:#2e7d4f;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  --serif:Georgia,'Times New Roman',serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:10}
+.mark{width:26px;height:26px;flex:none}
+.wordmark{font-family:var(--serif);font-size:22px;letter-spacing:.06em}
+.tagline{color:var(--ink-soft);font-size:12.5px;display:none}
+@media(min-width:700px){.tagline{display:block}}
+.spacer{flex:1}
+.sentinel{display:flex;align-items:center;gap:7px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--paper)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(46,125,79,.15);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(46,125,79,.15)}50%{box-shadow:0 0 0 6px rgba(46,125,79,.06)}}
+.tabs{display:none;gap:6px}
+.tabs button{font:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--line);border-radius:999px;padding:5px 11px;color:var(--ink-soft);cursor:pointer}
+.tabs button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:0;min-height:0}
+.chatcol{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+#chat{flex:1;overflow-y:auto;padding:26px 22px 12px;scroll-behavior:smooth}
+.msg{max-width:640px;margin:0 0 14px;animation:rise .35s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg .who{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:4px}
+.msg .body{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 15px;white-space:pre-wrap}
+.msg.me{margin-left:auto}
+.msg.me .body{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.msg.me .who{text-align:right}
+.msg .ts{font-size:10.5px;color:var(--ink-soft);font-family:var(--mono);margin-top:4px}
+.msg.me .ts{text-align:right}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;max-width:640px;margin:0 0 14px;animation:rise .35s ease both}
+.card h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;margin-bottom:10px}
+.plan .steps{list-style:none}
+.plan .steps li{display:flex;align-items:center;gap:10px;padding:6px 0;color:var(--ink-soft);transition:color .3s}
+.plan .box{width:15px;height:15px;flex:none;border:1.5px solid var(--line);border-radius:4px;position:relative;transition:all .3s}
+.plan li.active{color:var(--ink)}
+.plan li.active .box{border-color:var(--accent)}
+.plan li.active .box::after{content:'';position:absolute;inset:3px;border-radius:2px;background:var(--accent);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+.plan li.done{color:var(--ink)}
+.plan li.done .box{background:var(--ink);border-color:var(--ink)}
+.plan li.done .box::after{content:'✓';position:absolute;inset:0;color:var(--paper);font-size:10px;display:flex;align-items:center;justify-content:center}
+.pbar{height:3px;background:var(--line);border-radius:2px;margin-top:10px;overflow:hidden}
+.pbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .6s ease}
+.approval{border-left:3px solid var(--accent)}
+.approval .kicker{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.approval table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0 10px}
+.approval td{padding:4px 0;vertical-align:top}
+.approval td.k{color:var(--ink-soft);width:86px;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;padding-top:6px}
+.approval pre{font-family:var(--sans);white-space:pre-wrap;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13.5px;margin:2px 0 4px}
+.approval .note{font-size:12px;color:var(--ink-soft);margin:8px 0 12px}
+.abtns{display:flex;gap:8px}
+.abtns button{font:inherit;font-size:13px;padding:8px 18px;border-radius:999px;cursor:pointer;border:1px solid var(--ink)}
+.abtns .yes{background:var(--ink);color:var(--paper)}
+.abtns .no{background:none;color:var(--ink)}
+.abtns button:disabled{opacity:.45;cursor:default}
+.approval.decided .abtns{display:none}
+.approval .verdict{display:none;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.approval.ok .verdict.ok{display:block;color:var(--green)}
+.approval.no .verdict.no{display:block;color:var(--accent)}
+.typing{display:inline-flex;gap:4px;padding:4px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--ink-soft);animation:tp 1.1s infinite}
+.typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+@keyframes tp{0%,60%,100%{opacity:.25;transform:none}30%{opacity:1;transform:translateY(-3px)}}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 22px 12px}
+.chips button{font:inherit;font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer;color:var(--ink);transition:all .2s}
+.chips button:hover{border-color:var(--ink);transform:translateY(-1px)}
+.inputrow{display:flex;gap:10px;padding:12px 22px 16px;border-top:1px solid var(--line);background:var(--card)}
+.inputrow input{flex:1;font:inherit;padding:11px 15px;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--ink);outline:none}
+.inputrow input:focus{border-color:var(--ink)}
+.inputrow button{font:inherit;padding:11px 20px;border-radius:999px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer}
+.inputrow button:disabled{opacity:.4;cursor:default}
+aside{overflow-y:auto;padding:22px 18px;display:flex;flex-direction:column;gap:18px;background:var(--paper)}
+.pane{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.pane h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.pane .hint{font-size:11px;color:var(--ink-soft);margin-top:10px}
+.mem{list-style:none}
+.mem li{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.mem li:last-child{border-bottom:none}
+.mem li span{flex:1}
+.mem button{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px;font-family:var(--mono)}
+.mem button:hover{color:var(--accent)}
+.audit{list-style:none;font-size:12.5px}
+.audit li{display:flex;gap:10px;padding:5px 0;color:var(--ink-soft)}
+.audit li b{font-family:var(--mono);font-weight:400;color:var(--ink);flex:none;font-size:11px;padding-top:1px}
+.audit li.mine b{color:var(--accent)}
+.vm{display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+.vm div{display:flex;gap:8px;align-items:flex-start}
+.vm svg{flex:none;margin-top:2px}
+footer{padding:10px 22px;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--line);background:var(--card);display:flex;gap:8px;align-items:center}
+@media(max-width:899px){
+  main{grid-template-columns:1fr}
+  .tabs{display:flex}
+  aside{display:none;position:fixed;inset:59px 0 0 0;z-index:9;padding:18px}
+  body.show-side aside{display:flex}
+  body.show-side .chatcol{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14.5" fill="none" stroke="#211d17" stroke-width="2"/><circle cx="16" cy="16" r="6" fill="#c2451e"/><circle cx="18.2" cy="13.8" r="1.8" fill="#fffdf8"/></svg>
+  <span class="wordmark">MIRA</span>
+  <span class="tagline">a personal agent that does the work</span>
+  <div class="spacer"></div>
+  <div class="tabs">
+    <button id="tab-chat" class="on">Chat</button>
+    <button id="tab-side">Memory + audit</button>
+  </div>
+  <div class="sentinel"><span class="dot"></span>Sentinel active</div>
+</header>
+<main>
+  <section class="chatcol">
+    <div id="chat"></div>
+    <div class="chips" id="chips"></div>
+    <div class="inputrow">
+      <input id="inp" type="text" placeholder="Tell MIRA what needs to get done..." autocomplete="off">
+      <button id="send">Send</button>
+    </div>
+  </section>
+  <aside id="side">
+    <div class="pane">
+      <h3>Memory <span style="letter-spacing:0;text-transform:none;font-weight:400">yours to keep or cut</span></h3>
+      <ul class="mem" id="memlist"></ul>
+      <div class="hint">MIRA remembers what matters and forgets anything you ask her to. Stored only on this device.</div>
+    </div>
+    <div class="pane">
+      <h3>Audit trail</h3>
+      <ul class="audit" id="auditlist"></ul>
+    </div>
+    <div class="pane vm">
+      <h3>How MIRA runs</h3>
+      <div><svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="4.5" width="11" height="7.5" rx="1.5" fill="none" stroke="#6f675c" stroke-width="1.4"/><path d="M4 4.5V3.2a2.5 2.5 0 015 0v1.3" fill="none" stroke="#6f675c" stroke-width="1.4"/></svg>Her own secure VM. Your logins live in sealed storage - she can use them, never see them.</div>
+      <div><svg width="13" height="13" viewBox="0 0 13 13"><path d="M6.5 1l5 2v3.2c0 3-2.1 5-5 5.8-2.9-.8-5-2.8-5-5.8V3z" fill="none" stroke="#6f675c" stroke-width="1.4"/><path d="M4.3 6.6l1.6 1.6 2.9-3" fill="none" stroke="#2e7d4f" stroke-width="1.4"/></svg>A separate Sentinel watches every outbound action. Nothing leaves without a pass - or your approval.</div>
+      <div><svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="2.5" width="11" height="8" rx="1.5" fill="none" stroke="#6f675c" stroke-width="1.4"/><path d="M1 5h11" stroke="#6f675c" stroke-width="1.4"/></svg>Pays with one-time cards. Your real number never touches a merchant.</div>
+    </div>
+  </aside>
+</main>
+<footer>
+  <span>Demo build - the agent is simulated locally in your browser. Nothing you type leaves this page.</span>
+</footer>
+<script>
+(function(){
+'use strict';
+var chat=document.getElementById('chat'),chipsEl=document.getElementById('chips'),
+    inp=document.getElementById('inp'),sendBtn=document.getElementById('send'),
+    memList=document.getElementById('memlist'),auditList=document.getElementById('auditlist');
+var busy=false;
+
+/* ---------- persistence ---------- */
+var store={mem:[],aud:[]};
+try{var raw=localStorage.getItem('mira-v2');if(raw){var p=JSON.parse(raw);if(p&&p.mem)store=p;}}catch(e){}
+if(!store.mem.length){
+  store.mem=['Prefers window seats','Budget-first traveler','Dog named Biscuit','Allergic to peanuts'];
+}
+function save(){try{localStorage.setItem('mira-v2',JSON.stringify(store));}catch(e){}}
+
+function now(){var d=new Date();var h=d.getHours(),m=d.getMinutes();var ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+(m<10?'0':'')+m+' '+ap;}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function scroll(){chat.scrollTop=chat.scrollHeight;}
+
+/* ---------- renderers ---------- */
+function addMsg(role,text){
+  var d=document.createElement('div');d.className='msg '+(role==='me'?'me':'');
+  d.innerHTML='<div class="who">'+(role==='me'?'You':'MIRA')+'</div><div class="body">'+esc(text)+'</div><div class="ts">'+now()+'</div>';
+  chat.appendChild(d);scroll();return d;
+}
+function typing(){
+  var d=document.createElement('div');d.className='msg';
+  d.innerHTML='<div class="who">MIRA</div><div class="body"><span class="typing"><i></i><i></i><i></i></span></div>';
+  chat.appendChild(d);scroll();return d;
+}
+function say(text){
+  var t=typing();
+  return sleep(700+Math.min(1400,text.length*14)).then(function(){
+    t.remove();addMsg('mira',text);
+  });
+}
+function addMemory(text,mine){
+  if(store.mem.indexOf(text)>=0)return;
+  store.mem.push(text);save();renderMem();
+  var li=auditList; /* no-op to keep order readable */
+  addAudit('Remembered: '+text,mine);
+}
+function renderMem(){
+  memList.innerHTML='';
+  store.mem.forEach(function(m,i){
+    var li=document.createElement('li');
+    li.innerHTML='<span>'+esc(m)+'</span><button title="Forget this">forget</button>';
+    li.querySelector('button').addEventListener('click',function(){
+      store.mem.splice(i,1);save();renderMem();
+      addAudit('Forgot: '+m+' (you asked)',true);
+    });
+    memList.appendChild(li);
+  });
+}
+function addAudit(text,mine){
+  store.aud.unshift({t:now(),x:text,m:!!mine});
+  if(store.aud.length>60)store.aud.pop();
+  save();renderAudit();
+}
+function renderAudit(){
+  auditList.innerHTML='';
+  store.aud.forEach(function(a){
+    var li=document.createElement('li');if(a.m)li.className='mine';
+    li.innerHTML='<b>'+esc(a.t)+'</b><span>'+esc(a.x)+'</span>';
+    auditList.appendChild(li);
+  });
+}
+
+/* ---------- plan card ---------- */
+function planCard(title,steps){
+  var d=document.createElement('div');d.className='card plan';
+  d.innerHTML='<h3>Plan - '+esc(title)+'</h3><ul class="steps">'+
+    steps.map(function(s){return '<li><span class="box"></span><span>'+esc(s)+'</span></li>';}).join('')+
+    '</ul><div class="pbar"><i></i></div>';
+  chat.appendChild(d);scroll();
+  var lis=d.querySelectorAll('li'),bar=d.querySelector('.pbar i');
+  addAudit('Planned: '+title+' ('+steps.length+' steps)');
+  return {
+    run:function(){
+      var i=0;
+      function step(){
+        if(i>0){lis[i-1].classList.remove('active');lis[i-1].classList.add('done');}
+        if(i>=lis.length){bar.style.width='100%';return sleep(500);}
+        lis[i].classList.add('active');
+        addAudit('Working: '+steps[i]);
+        bar.style.width=Math.round(i/lis.length*100)+'%';
+        i++;
+        return sleep(1100+Math.random()*1300).then(step);
+      }
+      return step();
+    }
+  };
+}
+
+/* ---------- approval card ---------- */
+function approval(opts){
+  return new Promise(function(resolve){
+    var d=document.createElement('div');d.className='card approval';
+    var rows=opts.fields.map(function(f){return '<tr><td class="k">'+esc(f[0])+'</td><td>'+esc(f[1])+'</td></tr>';}).join('');
+    d.innerHTML='<div class="kicker"><svg width="12" height="12" viewBox="0 0 13 13"><path d="M6.5 1l5 2v3.2c0 3-2.1 5-5 5.8-2.9-.8-5-2.8-5-5.8V3z" fill="none" stroke="#c2451e" stroke-width="1.4"/></svg>Sentinel held this for your approval</div>'+
+      '<table>'+rows+'</table>'+
+      (opts.body?'<pre>'+esc(opts.body)+'</pre>':'')+
+      (opts.note?'<div class="note">'+esc(opts.note)+'</div>':'')+
+      '<div class="abtns"><button class="yes">'+esc(opts.yes||'Approve')+'</button><button class="no">Decline</button></div>'+
+      '<div class="verdict ok">Approved - sent</div><div class="verdict no">Declined - dropped</div>';
+    chat.appendChild(d);scroll();
+    addAudit('Held for approval: '+opts.what);
+    function done(ok){
+      d.classList.add('decided');d.classList.add(ok?'ok':'no');
+      d.querySelector('.verdict.ok').textContent=ok?(opts.okLabel||'Approved - sent'):'';
+      addAudit((ok?'Approved: ':'Declined: ')+opts.what,true);
+      resolve(ok);
+    }
+    d.querySelector('.yes').addEventListener('click',function(){done(true);});
+    d.querySelector('.no').addEventListener('click',function(){done(false);});
+  });
+}
+
+/* ---------- scenarios ---------- */
+var scenarios={
+  dinner:{
+    label:'Plan my dinner party',
+    run:function(){return (async function(){
+      await say('On it. Saturday works - your evening is clear after 5. I will build it around food you can prep ahead so you are not stuck in the kitchen.');
+      var p=planCard('Dinner party, Saturday',[
+        'Check the guest list and dietary restrictions',
+        'Build a menu that survives being made ahead',
+        'Draft the invites',
+        'Write the grocery list',
+        'Set the day-of timeline'
+      ]);
+      await p.run();
+      await say('One thing I factored in: the whole menu can be finished by 4, so the afternoon of the party stays yours.');
+      var ok=await approval({
+        what:'dinner invites to 4 friends',
+        fields:[['To','alex, jordan, riley, taylor'],['Subject','Dinner Saturday - 7pm, mine']],
+        body:'Saturday, 7pm at my place. Making pozole and a burnt-basque cheesecake. Bring nothing but yourself. Tell me by Thursday so I shop right.',
+        note:'Jordan has a shellfish allergy and Alex is vegetarian - both are covered by the menu. I will track the replies.',
+        yes:'Send invites',okLabel:'Invites sent'
+      });
+      if(ok){
+        addMemory('Alex is vegetarian');addMemory('Jordan has a shellfish allergy');
+        await say('Invites are out. Grocery list is ready - 14 items, two stores, about $60. I will remind you Thursday night to shop and nudge anyone who has not answered.');
+        addAudit('Sent 4 invites; grocery list saved');
+      }else{
+        await say('Dropped. The plan and the grocery list are still here if you want them later - just say so.');
+      }
+    })();}
+  },
+  car:{
+    label:'Sell my car',
+    run:function(){return (async function(){
+      await say('Taking it on. I will price it, list it, and handle the back-and-forth. You only step in for the test drive and the signature.');
+      var p=planCard('Sell the Civic',[
+        'Pull comparable listings within 25 miles',
+        'Set an asking price and a floor',
+        'Draft the listing with your photos',
+        'Screen and reply to buyers',
+        'Negotiate toward the floor, never below it'
+      ]);
+      await p.run();
+      await say('Three comps nearby are asking $8,900 to $9,400 for the same year and mileage. I listed yours at $9,200 with a floor of $8,700. First serious buyer already bit.');
+      addMemory('Car: 2015 Honda Civic, 98k miles');
+      var ok=await approval({
+        what:'counter-offer to buyer',
+        fields:[['Buyer','"buyer-114" - cash, can meet Saturday'],['Their offer','$8,600'],['My counter','$8,850']],
+        note:'That is $250 under list and $150 over your floor. Their message reads serious - pre-approved for a loan if not cash.',
+        yes:'Send counter',okLabel:'Counter sent'
+      });
+      if(ok){
+        await say('Counter sent. If they take it, I will line up the title paperwork and a safe meetup spot - police-station exchange zone, Saturday morning. I will come back the moment they answer.');
+        addAudit('Countered $8,850; awaiting buyer');
+      }else{
+        await say('Counter dropped. I will hold the listing at $9,200 and keep screening. There were two other inquiries behind this one.');
+      }
+    })();}
+  },
+  bill:{
+    label:'Lower my internet bill',
+    run:function(){return (async function(){
+      await say('On it. You are paying $79/mo. Two competitors are running promos in your building - that is leverage.');
+      var p=planCard('Cut the internet bill',[
+        'Pull your current plan and rate history',
+        'Find competitor promos at your address',
+        'Draft the retention pitch',
+        'Open the provider chat and negotiate',
+        'Confirm the new rate in writing'
+      ]);
+      await p.run();
+      addMemory('Internet: $79/mo plan');
+      var ok=await approval({
+        what:'message to your provider',
+        fields:[['Channel','Provider support chat'],['Goal','Retention offer']],
+        body:'I have been a customer for three years at $79/mo. [Competitor] is offering 500 Mbps for $45/mo at my address. I would rather stay - what can you do on the rate?',
+        note:'Retention desks usually land $15-25/mo off rather than lose the account. I will not agree to a contract longer than 12 months without asking.',
+        yes:'Send it',okLabel:'Sent'
+      });
+      if(ok){
+        await say('Done. They countered with $57/mo for the same speed, 12 months, no equipment fee. That is $22 less every month - $264 a year. The confirmation is in your email.');
+        addAudit('Bill lowered: $79 to $57/mo');
+        addMemory('Internet: $57/mo until Sep 2027');
+      }else{
+        await say('Held. The pitch is saved - say the word and I will send it, or I can just switch you to the $45 promo instead.');
+      }
+    })();}
+  },
+  trip:{
+    label:'Weekend in Mexico City',
+    run:function(){return (async function(){
+      await say('Good pick. I will keep it cheap and walkable - Roma Norte as the base, everything built around food and museums.');
+      var p=planCard('CDMX weekend',[
+        'Find flights ORD to MEX, Thursday to Sunday',
+        'Pick a walkable neighborhood stay',
+        'Build a food list - tacos, not tourist traps',
+        'Sketch the days around museums and parks',
+        'Hold the booking for your approval'
+      ]);
+      await p.run();
+      await say('Flights are the swing item and I found a good one: nonstop, out Thursday evening, back Sunday night. The rest of the trip prices itself once the flight lands.');
+      addMemory('Wants a window seat');
+      var ok=await approval({
+        what:'flight purchase, $312',
+        fields:[['Route','ORD to MEX, nonstop'],['Dates','Thu Oct 8 - Sun Oct 11'],['Total','$312.00, window seat']],
+        note:'Paid with a one-time card - the airline never sees your real number. Free cancellation for 24 hours.',
+        yes:'Book it',okLabel:'Booked'
+      });
+      if(ok){
+        await say('Booked. Confirmation is in your email. Next I will shortlist stays in Roma under $90 a night and a taco list from people who actually live there. You will hear from me when it is ready.');
+        addAudit('Booked ORD-MEX, Oct 8-11, $312');
+      }else{
+        await say('Not booked. I will watch that fare - if it drops under $280 I will flag it. The itinerary draft stays here either way.');
+      }
+    })();}
+  }
+};
+var chipOrder=['dinner','car','bill','trip'];
+function renderChips(){
+  chipsEl.innerHTML='';
+  chipOrder.forEach(function(k){
+    var b=document.createElement('button');
+    b.textContent=scenarios[k].label;
+    b.addEventListener('click',function(){startScenario(k);});
+    chipsEl.appendChild(b);
+  });
+}
+
+/* ---------- generic fallback ---------- */
+function generic(task){
+  return (async function(){
+    var short=task.length>60?task.slice(0,57)+'...':task;
+    await say('I will take that on: "'+short+'". Give me a minute to break it down.');
+    var p=planCard(short,['Break it into steps','Do the research','Report back with options']);
+    await p.run();
+    addAudit('Accepted task: '+short);
+    await say('Before I run further: is there a deadline, and is there anything you do not want me to do without asking first? I will keep working in the background and only stop you when something needs your call.');
+  })();
+}
+
+/* ---------- routing ---------- */
+function route(text){
+  var t=text.toLowerCase();
+  if(/dinner|party|guests|pozole/.test(t))return 'dinner';
+  if(/\bcar\b|sell my|listing|civic/.test(t))return 'car';
+  if(/bill|internet|wifi|broadband/.test(t))return 'bill';
+  if(/mexico|cdmx|trip|travel|flight|weekend in/.test(t))return 'trip';
+  return null;
+}
+function startScenario(k){
+  if(busy)return;busy=true;setUI();
+  addMsg('me',scenarios[k].label);
+  addAudit('You asked: '+scenarios[k].label,true);
+  scenarios[k].run().then(function(){busy=false;setUI();});
+}
+function setUI(){
+  inp.disabled=busy;sendBtn.disabled=busy;
+  chipsEl.style.display=busy?'none':'flex';
+  if(!busy)inp.focus();
+}
+function submit(){
+  var v=inp.value.trim();if(!v||busy)return;
+  inp.value='';
+  var k=route(v);
+  busy=true;setUI();
+  addMsg('me',v);
+  addAudit('You asked: '+(v.length>60?v.slice(0,57)+'...':v),true);
+  var done=function(){busy=false;setUI();};
+  if(k)scenarios[k].run().then(done);
+  else generic(v).then(done);
+}
+sendBtn.addEventListener('click',submit);
+inp.addEventListener('keydown',function(e){if(e.key==='Enter')submit();});
+
+/* ---------- mobile tabs ---------- */
+var tabChat=document.getElementById('tab-chat'),tabSide=document.getElementById('tab-side');
+tabChat.addEventListener('click',function(){document.body.classList.remove('show-side');tabChat.classList.add('on');tabSide.classList.remove('on');});
+tabSide.addEventListener('click',function(){document.body.classList.add('show-side');tabSide.classList.add('on');tabChat.classList.remove('on');});
+
+/* ---------- boot ---------- */
+renderMem();renderAudit();renderChips();
+addAudit('Session started');
+setTimeout(function(){
+  addMsg('mira','I am MIRA. Tell me what needs to get done - a task or a goal. I will plan it, do the legwork in the background, and only stop you when something needs your approval. Try one of these, or just type.');
+},400);
+})();
+</script>
+</body>
+</html>
